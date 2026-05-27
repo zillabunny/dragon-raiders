@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dragon Raiders</title>
+    <style>
+      :root { color-scheme: dark; }
+      html, body { margin: 0; height: 100%; overflow: hidden; background: #0a0a10; font-family: system-ui, sans-serif; color: #eee; }
+      #app { position: fixed; inset: 0; }
+      canvas { display: block; }
+      #hud {
+        position: fixed; left: 0; right: 0; top: 0;
+        padding: 10px 14px;
+        display: flex; justify-content: space-between; align-items: flex-start;
+        pointer-events: none;
+        font-size: 12px; opacity: 0.7;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+      }
+      #crosshair {
+        position: fixed; left: 50%; top: 50%; width: 6px; height: 6px;
+        margin: -3px 0 0 -3px; border-radius: 50%;
+        background: rgba(255,255,255,0.8);
+        pointer-events: none;
+      }
+      #start-overlay {
+        position: fixed; inset: 0;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        background: rgba(8, 8, 16, 0.85);
+        z-index: 10;
+        text-align: center;
+        cursor: pointer;
+      }
+      #start-overlay h1 { font-size: 48px; margin: 0 0 8px; letter-spacing: 2px; }
+      #start-overlay p { opacity: 0.8; margin: 4px 0; }
+      .hidden { display: none !important; }
+      kbd {
+        background: #222; border: 1px solid #444; border-bottom-width: 2px;
+        border-radius: 4px; padding: 1px 6px; font-size: 0.9em;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <div id="crosshair" class="hidden"></div>
+    <div id="hud" class="hidden">
+      <div id="hud-left">Dragon Raiders — Phase 1</div>
+      <div id="hud-right"><span id="fps">0</span> fps</div>
+    </div>
+    <div id="start-overlay">
+      <h1>🐉 Dragon Raiders</h1>
+      <p>Phase 4 — Slay the dragon</p>
+      <p style="margin-top:24px">
+        <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> move &nbsp;
+        <kbd>Space</kbd> jump &nbsp;
+        <kbd>Shift</kbd> sprint &nbsp;
+        <kbd>Mouse</kbd> look
+      </p>
+      <p style="margin-top:12px">
+        <kbd>Click</kbd> attack &nbsp;
+        <kbd>1</kbd> katana &nbsp;
+        <kbd>2</kbd> throwing stars &nbsp;
+        <kbd>Q</kbd> swap
+      </p>
+      <p style="margin-top:24px; opacity:0.9">Click to start</p>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

@@ -1,0 +1,45 @@
+{
+  "name": "Dragon Raiders",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:1-22-bookworm",
+
+  "features": {
+    "ghcr.io/devcontainers/features/common-utils:2": {
+      "installZsh": true,
+      "configureZshAsDefaultShell": true,
+      "username": "node"
+    },
+    "ghcr.io/devcontainers/features/git:1": {},
+    "ghcr.io/devcontainers/features/github-cli:1": {}
+  },
+
+  "forwardPorts": [5173, 2567],
+  "portsAttributes": {
+    "5173": {
+      "label": "Vite (client)",
+      "onAutoForward": "openPreview"
+    },
+    "2567": {
+      "label": "Colyseus (multiplayer server)",
+      "onAutoForward": "silent"
+    }
+  },
+
+  "postCreateCommand": "npm install -g @anthropic-ai/claude-code pnpm vite typescript tsx && echo 'Container ready. Run: claude'",
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "anthropic.claude-code"
+      ],
+      "settings": {
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        "terminal.integrated.defaultProfile.linux": "zsh"
+      }
+    }
+  },
+
+  "remoteUser": "node"
+}
