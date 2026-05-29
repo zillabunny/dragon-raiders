@@ -160,6 +160,18 @@ export const sound = {
     });
   },
 
+  doorOpen(): void {
+    if (!canPlay("doorOpen", 0.1)) return;
+    playThump(85, 135, 0.25, 0.32, "sawtooth");
+    playNoise(850, 220, 0.18, 0.16);
+  },
+
+  doorClose(): void {
+    if (!canPlay("doorClose", 0.1)) return;
+    playThump(180, 65, 0.20, 0.45, "sine");
+    playNoise(550, 90, 0.14, 0.22);
+  },
+
   rumble(): void {
     if (!canPlay("rumble", 1.2)) return;
     playNoise(420, 60, 1.4, 0.3);

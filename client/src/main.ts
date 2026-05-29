@@ -82,6 +82,7 @@ player.spawn(dungeon.playerSpawn, dungeon.playerYaw);
 const game = new Game(scene, world, player, camera);
 game.setPlayerSpawn(dungeon.playerSpawn, dungeon.playerYaw);
 game.setMonsterSpawns(dungeon.monsterSpawns);
+game.setDoors(dungeon.doors);
 
 const dragon = new Dragon();
 dragon.spawn(dungeon.bossSpawn, dungeon.bossYaw);

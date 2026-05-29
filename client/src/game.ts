@@ -17,6 +17,7 @@ import type { Dragon, DragonContext } from "./entities/dragon";
 import { Fireball } from "./entities/fireball";
 import { TreasurePile } from "./entities/treasurePile";
 import { ExitBeacon } from "./entities/exitBeacon";
+import { Door, type DoorSpec } from "./entities/door";
 
 const MONSTER_AGGRO_RANGE = 16;
 
@@ -41,6 +42,7 @@ export class Game {
   readonly projectiles: Projectile[] = [];
   readonly pickups: Pickup[] = [];
   readonly fireballs: Fireball[] = [];
+  readonly doors: Door[] = [];
   readonly particles: ParticleSystem;
   readonly hud: Hud;
   dragon: Dragon | null = null;
@@ -80,6 +82,15 @@ export class Game {
 
   setMonsterSpawns(specs: MonsterSpawnSpec[]): void {
     this.spawnSpecs = specs;
+  }
+
+  /** Instantiate doors from dungeon-generated specs. Call once at boot. */
+  setDoors(specs: readonly DoorSpec[]): void {
+    for (const spec of specs) {
+      const door = new Door(spec, this.world);
+      this.doors.push(door);
+      this.scene.add(door.mesh);
+    }
   }
 
   setDragon(dragon: Dragon): void {
@@ -222,6 +233,10 @@ export class Game {
 
     this.clearMonsters();
     this.resetSpawnQueue();
+
+    // Slam every door back to closed.
+    for (const door of this.doors) door.reset();
+
     this.gameOverShown = false;
     this.hud.hideGameOver();
     this.hud.hideVictory();
@@ -474,6 +489,12 @@ export class Game {
 
     if (this.dragon) {
       this.dragon.update(dt, this.player.position, dragonCtx);
+    }
+
+    // Doors: each one polls trigger-radius vs player + live monsters and
+    // animates accordingly. This is cheap (~80 distance checks/frame).
+    for (const door of this.doors) {
+      door.update(dt, this.player.position, this.monsters);
     }
 
     // Update projectiles + hit-test.

@@ -31,6 +31,13 @@ interface Block {
  * A grid-aligned voxel world. Blocks live on integer coordinates; rendering
  * uses one InstancedMesh per BlockType. Collisions are AABB-vs-solid-block.
  */
+/** Axis-aligned bounding box. Used by doors to register/unregister blockers. */
+export interface AABBBox {
+  minX: number; maxX: number;
+  minY: number; maxY: number;
+  minZ: number; maxZ: number;
+}
+
 export class VoxelWorld {
   readonly scene: THREE.Scene;
   /** Positions of torch blocks. A TorchPool dynamically lights the nearest few. */
@@ -39,6 +46,8 @@ export class VoxelWorld {
   private blocks: Block[] = [];
   private solidSet = new Set<string>();
   private meshes = new Map<BlockType, THREE.InstancedMesh>();
+  /** Closed doors register their slab AABB here so collision counts them as solid. */
+  private doorBlockers: AABBBox[] = [];
 
   constructor(scene: THREE.Scene) {
     this.scene = scene;
@@ -61,7 +70,7 @@ export class VoxelWorld {
 
   /**
    * Does an AABB anchored at `feet` (bottom-center) with `halfWidth` and
-   * `height` overlap any solid block?
+   * `height` overlap any solid block or any closed door blocker?
    */
   aabbCollidesSolid(feet: { x: number; y: number; z: number }, halfWidth: number, height: number): boolean {
     const minX = Math.floor(feet.x - halfWidth + 0.5);
@@ -88,7 +97,35 @@ export class VoxelWorld {
         }
       }
     }
+
+    // AABB-vs-AABB against any closed door slabs.
+    if (this.doorBlockers.length > 0) {
+      const playerMinX = feet.x - halfWidth;
+      const playerMaxX = feet.x + halfWidth;
+      const playerMinY = feet.y;
+      const playerMaxY = feet.y + height;
+      const playerMinZ = feet.z - halfWidth;
+      const playerMaxZ = feet.z + halfWidth;
+      for (const d of this.doorBlockers) {
+        if (playerMaxX <= d.minX || playerMinX >= d.maxX) continue;
+        if (playerMaxY <= d.minY || playerMinY >= d.maxY) continue;
+        if (playerMaxZ <= d.minZ || playerMinZ >= d.maxZ) continue;
+        return true;
+      }
+    }
+
     return false;
+  }
+
+  /** Register a closed-door blocker. Doors call this on close. */
+  addDoorBlocker(aabb: AABBBox): void {
+    if (!this.doorBlockers.includes(aabb)) this.doorBlockers.push(aabb);
+  }
+
+  /** Unregister a closed-door blocker. Doors call this when opening. */
+  removeDoorBlocker(aabb: AABBBox): void {
+    const i = this.doorBlockers.indexOf(aabb);
+    if (i >= 0) this.doorBlockers.splice(i, 1);
   }
 
   /** Build the meshes once all blocks are placed. */

@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import type { VoxelWorld } from "./voxelWorld";
 import type { MonsterKind, MonsterSpawnSpec } from "../entities/monsters";
+import type { DoorSpec, DoorSide } from "../entities/door";
 
 const GRID = 5;            // NxN grid of room cells
 const CELL_SIZE = 18;      // each grid cell is CELL_SIZE x CELL_SIZE voxels
@@ -14,9 +15,14 @@ export interface DungeonResult {
   bossSpawn: THREE.Vector3;
   bossYaw: number;
   monsterSpawns: MonsterSpawnSpec[];
+  doors: DoorSpec[];
   /** World-space center of the dungeon footprint, for shadow camera aiming. */
   center: THREE.Vector3;
 }
+
+const DOOR_BOTTOM = 0.5;
+const DOOR_TOP = 5.0;
+const DOOR_SLAB_HALF_THICKNESS = 0.1;
 
 interface RoomCell {
   gx: number;
@@ -232,6 +238,126 @@ export function generateDungeon(world: VoxelWorld, rng: () => number = Math.rand
     }
   }
 
+  // --- 9. Detect doorways and emit DoorSpecs ------------------------------
+  const doors: DoorSpec[] = [];
+  for (const room of rooms) {
+    collectDoorsOnSide(room, "north", isPass, doors);
+    collectDoorsOnSide(room, "south", isPass, doors);
+    collectDoorsOnSide(room, "east",  isPass, doors);
+    collectDoorsOnSide(room, "west",  isPass, doors);
+  }
+
   const center = new THREE.Vector3(W / 2, 0, D / 2);
-  return { playerSpawn, playerYaw, bossSpawn, bossYaw, monsterSpawns, center };
+  return { playerSpawn, playerYaw, bossSpawn, bossYaw, monsterSpawns, doors, center };
+}
+
+/**
+ * Scan a single side of the room for contiguous 2-wide passable runs in the
+ * exterior boundary row (= corridor openings) and emit a DoorSpec for each.
+ * Wider/different-sized openings (rare; would come from an L-corner landing
+ * right at a room edge) are skipped — better to leave an arch than try to
+ * place an off-spec door.
+ */
+function collectDoorsOnSide(
+  room: RoomCell,
+  side: DoorSide,
+  isPass: (x: number, z: number) => boolean,
+  out: DoorSpec[],
+): void {
+  // Walk the exterior boundary line, find consecutive passable cells.
+  const runs: Array<{ a: number; b: number }> = [];
+  if (side === "north" || side === "south") {
+    const zExt = side === "north" ? room.z0 - 1 : room.z1 + 1;
+    let runStart = -1;
+    for (let x = room.x0; x <= room.x1 + 1; x++) {
+      const passable = x <= room.x1 ? isPass(x, zExt) : false;
+      if (passable && runStart < 0) runStart = x;
+      else if (!passable && runStart >= 0) {
+        runs.push({ a: runStart, b: x - 1 });
+        runStart = -1;
+      }
+    }
+  } else {
+    const xExt = side === "east" ? room.x1 + 1 : room.x0 - 1;
+    let runStart = -1;
+    for (let z = room.z0; z <= room.z1 + 1; z++) {
+      const passable = z <= room.z1 ? isPass(xExt, z) : false;
+      if (passable && runStart < 0) runStart = z;
+      else if (!passable && runStart >= 0) {
+        runs.push({ a: runStart, b: z - 1 });
+        runStart = -1;
+      }
+    }
+  }
+
+  for (const run of runs) {
+    if (run.b - run.a !== 1) continue; // only handle clean 2-wide openings
+
+    // Wall plane is at the boundary between the exterior row and the
+    // room's first interior row.
+    if (side === "north") {
+      const wallZ = room.z0 - 0.5;
+      const hingeX = run.a - 0.5;
+      out.push({
+        side,
+        hingePos: new THREE.Vector3(hingeX, 0, wallZ),
+        centerPos: new THREE.Vector3(run.a + 0.5, 0, wallZ),
+        slabAabb: {
+          minX: hingeX, maxX: hingeX + 2,
+          minY: DOOR_BOTTOM, maxY: DOOR_TOP,
+          minZ: wallZ - DOOR_SLAB_HALF_THICKNESS,
+          maxZ: wallZ + DOOR_SLAB_HALF_THICKNESS,
+        },
+      });
+    } else if (side === "south") {
+      const wallZ = room.z1 + 0.5;
+      // For south side our orientation rotates by π, so the "local +X"
+      // direction in world is -X. Place the hinge at the higher-X end so
+      // the slab still extends in the local +X direction after rotation.
+      const hingeX = run.b + 0.5;
+      out.push({
+        side,
+        hingePos: new THREE.Vector3(hingeX, 0, wallZ),
+        centerPos: new THREE.Vector3(run.a + 0.5, 0, wallZ),
+        slabAabb: {
+          minX: hingeX - 2, maxX: hingeX,
+          minY: DOOR_BOTTOM, maxY: DOOR_TOP,
+          minZ: wallZ - DOOR_SLAB_HALF_THICKNESS,
+          maxZ: wallZ + DOOR_SLAB_HALF_THICKNESS,
+        },
+      });
+    } else if (side === "east") {
+      const wallX = room.x1 + 0.5;
+      // East side rotates by -π/2, so local +X aligns with world -Z.
+      // Hinge at the higher-Z end so the slab extends toward lower Z.
+      const hingeZ = run.b + 0.5;
+      out.push({
+        side,
+        hingePos: new THREE.Vector3(wallX, 0, hingeZ),
+        centerPos: new THREE.Vector3(wallX, 0, run.a + 0.5),
+        slabAabb: {
+          minX: wallX - DOOR_SLAB_HALF_THICKNESS,
+          maxX: wallX + DOOR_SLAB_HALF_THICKNESS,
+          minY: DOOR_BOTTOM, maxY: DOOR_TOP,
+          minZ: hingeZ - 2, maxZ: hingeZ,
+        },
+      });
+    } else { // west
+      const wallX = room.x0 - 0.5;
+      // West side rotates by +π/2 → local +X aligns with world +Z.
+      // Hinge at the lower-Z end so the slab extends toward higher Z.
+      const hingeZ = run.a - 0.5;
+      out.push({
+        side,
+        hingePos: new THREE.Vector3(wallX, 0, hingeZ),
+        centerPos: new THREE.Vector3(wallX, 0, run.a + 0.5),
+        slabAabb: {
+          minX: wallX - DOOR_SLAB_HALF_THICKNESS,
+          maxX: wallX + DOOR_SLAB_HALF_THICKNESS,
+          minY: DOOR_BOTTOM, maxY: DOOR_TOP,
+          minZ: hingeZ, maxZ: hingeZ + 2,
+        },
+      });
+    }
+  }
 }
