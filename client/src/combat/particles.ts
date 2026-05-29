@@ -61,6 +61,28 @@ export class ParticleSystem {
     }
   }
 
+  /** Emit falling debris (downward velocity) — used for the dungeon collapse. */
+  emitDebris(at: THREE.Vector3, color: THREE.ColorRepresentation, count = 4): void {
+    const base = new THREE.Color(color);
+    for (let i = 0; i < count; i++) {
+      if (this.particles.length >= this.capacity) break;
+      this.particles.push({
+        position: at.clone().add(new THREE.Vector3(
+          (Math.random() - 0.5) * 1.5, 0, (Math.random() - 0.5) * 1.5,
+        )),
+        velocity: new THREE.Vector3(
+          (Math.random() - 0.5) * 1.2,
+          -2 - Math.random() * 3,
+          (Math.random() - 0.5) * 1.2,
+        ),
+        life: 0.9 + Math.random() * 0.6,
+        maxLife: 1.5,
+        color: base.clone().offsetHSL(0, 0, (Math.random() - 0.5) * 0.2),
+        size: 0.2,
+      });
+    }
+  }
+
   update(dt: number): void {
     for (let i = this.particles.length - 1; i >= 0; i--) {
       const p = this.particles[i];

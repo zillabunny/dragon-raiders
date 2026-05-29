@@ -160,6 +160,18 @@ export const sound = {
     });
   },
 
+  rumble(): void {
+    if (!canPlay("rumble", 1.2)) return;
+    playNoise(420, 60, 1.4, 0.3);
+    playThump(72, 38, 1.5, 0.38, "sine");
+  },
+
+  collapse(): void {
+    if (!canPlay("collapse", 0.4)) return;
+    playThump(130, 28, 1.1, 0.75, "sawtooth");
+    playNoise(900, 65, 1.0, 0.55);
+  },
+
   loot(): void {
     if (!canPlay("loot", 0.3)) return;
     const c = ensureCtx();

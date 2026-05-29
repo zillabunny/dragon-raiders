@@ -15,6 +15,10 @@ export class Hud {
   private bossBarFill: HTMLDivElement;
   private bossNameText: HTMLDivElement;
   private victory: HTMLDivElement;
+  private escapePanel: HTMLDivElement;
+  private escapeTimer: HTMLDivElement;
+  private escapeDist: HTMLSpanElement;
+  private escapeArrow: HTMLDivElement;
   private root: HTMLDivElement;
 
   constructor(private onRestart: () => void) {
@@ -49,6 +53,15 @@ export class Hud {
         #victory.hidden { display: none; }
         #victory h1 { font-size: 72px; margin: 0 0 12px; color: #ffd060; letter-spacing: 6px; text-shadow: 0 0 20px rgba(255,200,80,0.6); }
         #victory p { opacity: 0.9; }
+        #escape-panel { position: fixed; top: 14px; left: 50%; transform: translateX(-50%); width: 360px; padding: 10px 14px; background: rgba(30,12,4,0.72); border: 1px solid rgba(255,150,60,0.55); border-radius: 8px; text-align: center; pointer-events: none; }
+        #escape-panel.hidden { display: none; }
+        #escape-title { font-size: 15px; font-weight: 800; letter-spacing: 3px; color: #ffae50; text-shadow: 0 1px 3px #000; }
+        #escape-timer { font-size: 46px; font-weight: 800; line-height: 1.05; color: #ffd070; text-shadow: 0 2px 6px #000; font-variant-numeric: tabular-nums; }
+        #escape-sub { font-size: 13px; opacity: 0.9; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        #escape-arrow { font-size: 26px; color: #80ffa0; line-height: 1; transition: transform 80ms linear; text-shadow: 0 0 8px rgba(120,255,160,0.7); }
+        #escape-panel.danger { border-color: #ff4040; animation: escapeFlash 0.6s steps(2, jump-none) infinite; }
+        #escape-panel.danger #escape-timer { color: #ff5050; }
+        @keyframes escapeFlash { 0% { background: rgba(60,10,4,0.85); } 100% { background: rgba(30,12,4,0.6); } }
         kbd { background:#222; border:1px solid #444; border-bottom-width:2px; border-radius:4px; padding:1px 6px; font-size:0.9em; }
       </style>
       <div id="hp-panel" class="panel">
@@ -74,9 +87,17 @@ export class Hud {
         </div>
       </div>
       <div id="victory" class="hidden">
-        <h1>VICTORY</h1>
-        <p>The dragon is slain. The treasure is yours.</p>
+        <h1>YOU ESCAPED</h1>
+        <p>Dragon slain, treasure claimed, and out alive. A true ninja.</p>
         <p style="margin-top: 24px">Press <kbd>R</kbd> or click to play again</p>
+      </div>
+      <div id="escape-panel" class="hidden">
+        <div id="escape-title">⚠ THE DUNGEON IS COLLAPSING ⚠</div>
+        <div id="escape-timer">60</div>
+        <div id="escape-sub">
+          <div id="escape-arrow">▲</div>
+          <span>to the exit · <span id="escape-dist">0m</span></span>
+        </div>
       </div>
     `;
     document.body.appendChild(this.root);
@@ -91,6 +112,10 @@ export class Hud {
     this.bossBarFill = this.root.querySelector("#boss-bar-fill") as HTMLDivElement;
     this.bossNameText = this.root.querySelector("#boss-name") as HTMLDivElement;
     this.victory = this.root.querySelector("#victory") as HTMLDivElement;
+    this.escapePanel = this.root.querySelector("#escape-panel") as HTMLDivElement;
+    this.escapeTimer = this.root.querySelector("#escape-timer") as HTMLDivElement;
+    this.escapeDist = this.root.querySelector("#escape-dist") as HTMLSpanElement;
+    this.escapeArrow = this.root.querySelector("#escape-arrow") as HTMLDivElement;
 
     this.gameOver.addEventListener("click", () => this.onRestart());
     this.victory.addEventListener("click", () => this.onRestart());
@@ -150,5 +175,21 @@ export class Hud {
 
   hideVictory(): void {
     this.victory.classList.add("hidden");
+  }
+
+  setEscapeVisible(visible: boolean): void {
+    this.escapePanel.classList.toggle("hidden", !visible);
+    if (!visible) this.escapePanel.classList.remove("danger");
+  }
+
+  /**
+   * Update the collapse banner. `angleRad` is the exit direction relative to
+   * the player's view (0 = dead ahead, +clockwise), used to rotate the chevron.
+   */
+  setEscapeStatus(timeLeft: number, distance: number, angleRad: number): void {
+    this.escapeTimer.textContent = Math.ceil(timeLeft).toString();
+    this.escapeDist.textContent = `${Math.round(distance)}m`;
+    this.escapeArrow.style.transform = `rotate(${angleRad}rad)`;
+    this.escapePanel.classList.toggle("danger", timeLeft <= 15);
   }
 }
