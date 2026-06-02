@@ -239,12 +239,15 @@ export function generateDungeon(world: VoxelWorld, rng: () => number = Math.rand
   }
 
   // --- 9. Detect doorways and emit DoorSpecs ------------------------------
+  // Only ~50% of detected doorways get a real door. The rest stay as open
+  // archways so the dungeon has a mix of bashing-through and just-walking-
+  // through transitions.
   const doors: DoorSpec[] = [];
   for (const room of rooms) {
-    collectDoorsOnSide(room, "north", isPass, doors);
-    collectDoorsOnSide(room, "south", isPass, doors);
-    collectDoorsOnSide(room, "east",  isPass, doors);
-    collectDoorsOnSide(room, "west",  isPass, doors);
+    collectDoorsOnSide(room, "north", isPass, rng, doors);
+    collectDoorsOnSide(room, "south", isPass, rng, doors);
+    collectDoorsOnSide(room, "east",  isPass, rng, doors);
+    collectDoorsOnSide(room, "west",  isPass, rng, doors);
   }
 
   const center = new THREE.Vector3(W / 2, 0, D / 2);
@@ -258,10 +261,13 @@ export function generateDungeon(world: VoxelWorld, rng: () => number = Math.rand
  * right at a room edge) are skipped — better to leave an arch than try to
  * place an off-spec door.
  */
+const DOOR_PROBABILITY = 0.5; // ~50% of doorways get a door; rest stay open
+
 function collectDoorsOnSide(
   room: RoomCell,
   side: DoorSide,
   isPass: (x: number, z: number) => boolean,
+  rng: () => number,
   out: DoorSpec[],
 ): void {
   // Walk the exterior boundary line, find consecutive passable cells.
@@ -292,6 +298,7 @@ function collectDoorsOnSide(
 
   for (const run of runs) {
     if (run.b - run.a !== 1) continue; // only handle clean 2-wide openings
+    if (rng() >= DOOR_PROBABILITY) continue; // leave this one as an open arch
 
     // Wall plane is at the boundary between the exterior row and the
     // room's first interior row.

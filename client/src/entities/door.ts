@@ -39,6 +39,7 @@ export class Door {
   private hingePivot = new THREE.Group();
   private spec: DoorSpec;
   private world: VoxelWorld;
+  private swingSign: 1 | -1;
 
   state: DoorState = "closed";
   private animTime = 0;
@@ -49,10 +50,13 @@ export class Door {
     this.spec = spec;
     this.world = world;
     this.position = spec.centerPos.clone();
+    this.swingSign = Door.swingSignFor(spec.side);
 
     // Outer group: positioned at the hinge corner, oriented to the wall.
-    // The slab is built in local +X and rotates +X→+Z when opening, so the
-    // baseAngle aligns local axes such that opening swings INTO the room.
+    // The slab is built in local +X; baseAngle rotates local +X to align
+    // with the wall axis (so the closed slab lies along the wall), and
+    // swingSign chooses which direction it pivots so opening goes INTO
+    // the room rather than into the corridor.
     this.mesh.position.copy(spec.hingePos);
     this.mesh.rotation.y = Door.baseAngleFor(spec.side);
     this.mesh.add(this.hingePivot);
@@ -87,16 +91,37 @@ export class Door {
   }
 
   /**
-   * The outer group's Y rotation per side. After this orientation, the slab's
-   * local +X axis aligns with the wall direction and local +Z points INTO
-   * the room (the direction the door swings open).
+   * The outer group's Y rotation per side. After this rotation, the slab's
+   * local +X axis points along the wall in the direction the closed slab
+   * should extend from the hinge.
+   *
+   * Derived by solving `R_y(θ) * (1,0,0) = wall_direction` for each side:
+   * - north:  wall direction is world +X  → θ = 0
+   * - south:  wall direction is world -X  → θ = π
+   * - east:   wall direction is world -Z  → θ = +π/2
+   * - west:   wall direction is world +Z  → θ = -π/2
    */
   private static baseAngleFor(side: DoorSide): number {
     switch (side) {
       case "north": return 0;
       case "south": return Math.PI;
-      case "east":  return -Math.PI / 2;
-      case "west":  return Math.PI / 2;
+      case "east":  return Math.PI / 2;
+      case "west":  return -Math.PI / 2;
+    }
+  }
+
+  /**
+   * Direction the door pivots when opening, chosen so the slab ends up
+   * inside the room (not the corridor). Worked out per side by composing
+   * the hingePivot rotation with the mesh's baseAngle and checking which
+   * sign makes the world-space slab direction match "into-room."
+   */
+  private static swingSignFor(side: DoorSide): 1 | -1 {
+    switch (side) {
+      case "north": return -1;
+      case "south": return -1;
+      case "east":  return 1;
+      case "west":  return 1;
     }
   }
 
@@ -156,7 +181,7 @@ export class Door {
     // Smoothstep so the swing eases in and out a touch.
     const t = this.openness;
     const eased = t * t * (3 - 2 * t);
-    this.hingePivot.rotation.y = eased * (Math.PI / 2);
+    this.hingePivot.rotation.y = eased * (Math.PI / 2) * this.swingSign;
   }
 
   private beginOpening(): void {
@@ -183,7 +208,7 @@ export class Door {
     this.state = "closed";
     this.openness = 0;
     this.animTime = 0;
-    this.hingePivot.rotation.y = 0;
+    this.hingePivot.rotation.y = 0; // value × swingSign; 0 is sign-agnostic
     if (!this.blockerRegistered) {
       this.world.addDoorBlocker(this.spec.slabAabb);
       this.blockerRegistered = true;
