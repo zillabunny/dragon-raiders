@@ -13,6 +13,10 @@ const SPRINT_MULT = 1.7;
 const JUMP_SPEED = 8.5;
 const GRAVITY = 24;
 const MOUSE_SENSITIVITY = 0.0022;
+// Cap per-event mouse deltas. After a frame stall or focus change the
+// browser occasionally delivers one large accumulated mousemove event,
+// which without a cap whips the view violently in one direction.
+const MOUSE_DELTA_CAP = 200;
 
 const MAX_HP = 100;
 const REGEN_PER_SEC = 6;
@@ -101,13 +105,19 @@ export class Player {
 
   private bindInput(): void {
     document.addEventListener("pointerlockchange", () => {
+      const wasLocked = this.pointerLocked;
       this.pointerLocked = document.pointerLockElement === this.domElement;
+      // Losing lock can leave keys "stuck" because the keyup arrives at a
+      // different window. Drop everything so we resume clean on re-lock.
+      if (wasLocked && !this.pointerLocked) this.releaseAllInputs();
     });
 
     document.addEventListener("mousemove", (e) => {
       if (!this.pointerLocked) return;
-      this.yaw -= e.movementX * MOUSE_SENSITIVITY;
-      this.pitch -= e.movementY * MOUSE_SENSITIVITY;
+      const mx = Math.max(-MOUSE_DELTA_CAP, Math.min(MOUSE_DELTA_CAP, e.movementX));
+      const my = Math.max(-MOUSE_DELTA_CAP, Math.min(MOUSE_DELTA_CAP, e.movementY));
+      this.yaw -= mx * MOUSE_SENSITIVITY;
+      this.pitch -= my * MOUSE_SENSITIVITY;
       const limit = Math.PI / 2 - 0.001;
       if (this.pitch > limit) this.pitch = limit;
       if (this.pitch < -limit) this.pitch = -limit;
@@ -124,6 +134,24 @@ export class Player {
 
     window.addEventListener("keydown", (e) => this.onKey(e, true));
     window.addEventListener("keyup", (e) => this.onKey(e, false));
+
+    // If the window loses focus mid-press, the matching keyup goes to whoever
+    // has focus next — not us. Same for the document going hidden. Clear all
+    // held input state in both cases so movement keys never stay stuck.
+    window.addEventListener("blur", () => this.releaseAllInputs());
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) this.releaseAllInputs();
+    });
+  }
+
+  private releaseAllInputs(): void {
+    this.keys.forward = false;
+    this.keys.back = false;
+    this.keys.left = false;
+    this.keys.right = false;
+    this.keys.jump = false;
+    this.keys.sprint = false;
+    this.attackHeld = false;
   }
 
   requestPointerLock(): void {
