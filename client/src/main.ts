@@ -6,6 +6,7 @@ import { Player } from "./entities/player";
 import { Game } from "./game";
 import { sound } from "./audio/sound";
 import { Dragon } from "./entities/dragon";
+import { analytics } from "./analytics";
 
 const appEl = document.getElementById("app") as HTMLDivElement;
 const startOverlay = document.getElementById("start-overlay") as HTMLDivElement;
@@ -100,9 +101,14 @@ function showPlaying(playing: boolean): void {
   game.hud.setVisible(playing);
 }
 
+let gameStartFired = false;
 startOverlay.addEventListener("click", () => {
   sound.init();
   player.requestPointerLock();
+  if (!gameStartFired) {
+    gameStartFired = true;
+    analytics.event("game_start");
+  }
 });
 
 document.addEventListener("pointerlockchange", () => {

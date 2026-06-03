@@ -18,6 +18,7 @@ import { Fireball } from "./entities/fireball";
 import { TreasurePile } from "./entities/treasurePile";
 import { ExitBeacon } from "./entities/exitBeacon";
 import { Door, type DoorSpec } from "./entities/door";
+import { analytics } from "./analytics";
 
 const MONSTER_AGGRO_RANGE = 16;
 
@@ -105,6 +106,9 @@ export class Game {
       this.hud.setBossBarVisible(true, "DRAGON");
     } else if (state === "idle" || state === "dead") {
       this.hud.setBossBarVisible(false);
+    }
+    if (state === "dying") {
+      analytics.event("dragon_defeated");
     }
   }
 
@@ -249,6 +253,7 @@ export class Game {
     this.resetFog();
 
     this.updateHud();
+    analytics.event("game_restart");
     // Re-acquire pointer lock since the restart click/key may have released it.
     this.player.requestPointerLock();
   }
@@ -328,6 +333,9 @@ export class Game {
   }
 
   private completeEscape(): void {
+    analytics.event("escape_success", {
+      time_left: Math.max(0, Math.round(this.escapeTimeLeft)),
+    });
     this.escapeActive = false;
     this.hud.setEscapeVisible(false);
     this.hud.showVictory();
@@ -335,6 +343,11 @@ export class Game {
   }
 
   private failEscape(): void {
+    const dxE = (this.playerSpawn?.x ?? 0) - this.player.position.x;
+    const dzE = (this.playerSpawn?.z ?? 0) - this.player.position.z;
+    analytics.event("escape_failure", {
+      distance_to_exit: Math.round(Math.hypot(dxE, dzE)),
+    });
     this.escapeActive = false;
     this.hud.setEscapeVisible(false);
     sound.collapse();
@@ -571,6 +584,7 @@ export class Game {
       if (!this.treasure.looted && this.treasure.inRange(this.player.position)) {
         this.treasure.loot(this.particles);
         sound.loot();
+        analytics.event("treasure_looted");
         this.beginEscape();
       }
     }
@@ -583,6 +597,7 @@ export class Game {
     if (!this.player.alive && !this.gameOverShown) {
       this.gameOverShown = true;
       this.hud.showGameOver();
+      analytics.event("player_death");
     }
   }
 
