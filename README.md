@@ -2,7 +2,7 @@
 
 A 3D voxel-style dungeon crawler where a ninja raids a monster-infested dungeon, slays a boss dragon, loots its hoard, and escapes the collapse. Built in the browser with Three.js — no installs, just a link.
 
-**▶ Play: https://zillabunny.github.io/dragon-raiders/**
+**▶ Play: https://dragonraiders.goblingames.com/**
 
 > Click the screen to start (this also unlocks audio). Press **R** to restart after a win or death.
 
